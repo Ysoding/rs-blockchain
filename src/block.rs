@@ -2,6 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
 use bincode::serde::encode_to_vec;
+use log::info;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -63,7 +64,7 @@ impl Block {
     }
 
     fn run_proof_of_work(&mut self) -> Result<()> {
-        println!("Mining the block containing \"{}\"\n", self.data);
+        info!("Mining the block containing \"{}\"\n", self.data);
         loop {
             if self.validate()? {
                 self.hash = self.hash()?;

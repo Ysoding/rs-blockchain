@@ -1,16 +1,26 @@
-use std::{thread::sleep, time::Duration};
+use std::process::exit;
 
 use anyhow::Result;
-use rs_blockchain::Blockchain;
+use clap::Parser;
+use env_logger::Env;
+use rs_blockchain::{Blockchain, Cli, Commands};
 
 fn main() -> Result<()> {
-    let mut bc = Blockchain::new();
-    sleep(Duration::from_millis(10));
-    bc.add_block("Send 1 BTC to Xmchx".to_owned())?;
-    sleep(Duration::from_millis(30));
-    bc.add_block("Send 2 more BTC to Xmchx".to_owned())?;
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    println!("{:?}", bc.blocks);
+    let cli = Cli::parse();
+    let mut bc = Blockchain::new()?;
 
+    match cli.command {
+        Commands::AddBlock { data } => {
+            if data.is_empty() {
+                exit(1);
+            }
+            bc.add_block(data)?;
+        }
+        Commands::PrintChain {} => {
+            bc.iter().for_each(|b| println!("{:?}", b));
+        }
+    }
     Ok(())
 }
