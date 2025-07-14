@@ -1,17 +1,16 @@
+use std::{thread::sleep, time::Duration};
+
 use anyhow::Result;
 use rs_blockchain::Blockchain;
 
 fn main() -> Result<()> {
     let mut bc = Blockchain::new();
+    sleep(Duration::from_millis(10));
     bc.add_block("Send 1 BTC to Xmchx".to_owned())?;
+    sleep(Duration::from_millis(30));
     bc.add_block("Send 2 more BTC to Xmchx".to_owned())?;
 
-    for b in &bc.blocks {
-        println!("Prev. hash: {}", b.prev_block_hash);
-        println!("Data: {}", b.data);
-        println!("Hash: {}", b.hash);
-        println!()
-    }
+    println!("{:?}", bc.blocks);
 
     Ok(())
 }
