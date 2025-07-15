@@ -1,32 +1,35 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
-use bincode::serde::encode_to_vec;
+use bincode::{config::standard, serde::encode_to_vec};
 use log::info;
+use rs_merkle::MerkleTree;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+
+use crate::Transaction;
 
 const TARGET_BITS: usize = 2;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Block {
     timestamp: u128,
-    pub data: String,
+    pub transactions: Vec<Transaction>,
     pub prev_block_hash: [u8; 32],
     pub hash: [u8; 32],
     nonce: u32,
 }
 
 impl Block {
-    pub fn new_genesis_block() -> Self {
-        Self::new("Genesis Block".to_owned(), [0u8; 32]).unwrap()
+    pub fn new_genesis_block(coinbase: Transaction) -> Self {
+        Self::new(vec![coinbase], [0u8; 32]).unwrap()
     }
 
-    pub fn new(data: String, prev_block_hash: [u8; 32]) -> Result<Self> {
+    pub fn new(transactions: Vec<Transaction>, prev_block_hash: [u8; 32]) -> Result<Self> {
         let mut data = Self {
             timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis(),
             prev_block_hash,
-            data,
+            transactions,
             hash: [0u8; 32],
             nonce: 0,
         };
@@ -37,13 +40,22 @@ impl Block {
     fn prepare_hash_data(&self) -> Result<Vec<u8>> {
         let data_to_hash = (
             &self.prev_block_hash,
-            &self.data,
+            self.hash_transactions()?,
             self.timestamp,
             TARGET_BITS,
             self.nonce,
         );
-        let data = encode_to_vec(data_to_hash, bincode::config::standard())?;
+        let data = encode_to_vec(data_to_hash, standard())?;
         Ok(data)
+    }
+
+    fn hash_transactions(&self) -> Result<[u8; 32]> {
+        let mut leaves = Vec::new();
+        for tx in &self.transactions {
+            leaves.push(tx.hash()?);
+        }
+        let merkle_tree = MerkleTree::<rs_merkle::algorithms::Sha256>::from_leaves(&leaves);
+        Ok(merkle_tree.root().unwrap())
     }
 
     fn validate(&self) -> Result<bool> {
@@ -64,7 +76,7 @@ impl Block {
     }
 
     fn run_proof_of_work(&mut self) -> Result<()> {
-        info!("Mining the block containing \"{}\"\n", self.data);
+        info!("Mining the block");
         loop {
             if self.validate()? {
                 self.hash = self.hash()?;
