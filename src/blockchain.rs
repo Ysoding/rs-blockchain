@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use bincode::{
     config::standard,
     serde::{decode_from_slice, encode_to_vec},
@@ -19,7 +19,7 @@ pub struct Blockchain {
 
 impl Blockchain {
     pub fn new(addr: &str) -> Result<Self> {
-        let db = sled::open("db")?;
+        let db = sled::open("db/blockchain")?;
         match db.get("l")? {
             Some(hash) => {
                 info!("Found blockchain");
@@ -37,13 +37,13 @@ impl Blockchain {
     pub fn create(addr: &str) -> Result<Self> {
         info!("Create new blockchain");
 
-        let cbtx = Transaction::new_coinbase(addr.to_owned(), GENESIS_COINBASE_DATA.to_owned())?;
+        let cbtx = Transaction::new_coinbase(addr, GENESIS_COINBASE_DATA.to_owned())?;
         let genesis = Block::new_genesis_block(cbtx);
 
-        std::fs::remove_dir_all("db")?;
+        let _ = std::fs::remove_dir_all("db/blockchain");
 
         let hash = genesis.hash;
-        let db = sled::open("db")?;
+        let db = sled::open("db/blockchain")?;
         db.insert(hash, encode_to_vec(genesis, standard())?)?;
         db.insert("l", &hash)?;
         db.flush()?;
@@ -54,17 +54,17 @@ impl Blockchain {
 
     pub fn find_spendable_outputs(
         &self,
-        addr: &str,
+        pub_key_hash: &[u8],
         amount: i32,
     ) -> (i32, HashMap<String, Vec<i32>>) {
         let mut accumulated = 0;
         let mut unspent_outputs: HashMap<String, Vec<i32>> = HashMap::new();
 
-        let unsped_txs = self.find_unspend_transactions(addr);
+        let unsped_txs = self.find_unspend_transactions(pub_key_hash);
 
         for tx in unsped_txs {
             for (out_idx, out) in tx.v_out.iter().enumerate() {
-                if out.can_be_unlocked_with(addr) && accumulated < amount {
+                if out.is_locked_with_key(pub_key_hash) && accumulated < amount {
                     accumulated += out.value;
 
                     unspent_outputs
@@ -82,7 +82,7 @@ impl Blockchain {
         (accumulated, unspent_outputs)
     }
 
-    fn find_unspend_transactions(&self, addr: &str) -> Vec<Transaction> {
+    fn find_unspend_transactions(&self, pub_key_hash: &[u8]) -> Vec<Transaction> {
         let mut unspend_txs = vec![];
         let mut spend_txos: HashMap<String, Vec<i32>> = HashMap::new();
 
@@ -95,14 +95,14 @@ impl Blockchain {
                         }
                     }
 
-                    if out.can_be_unlocked_with(addr) {
+                    if out.is_locked_with_key(pub_key_hash) {
                         unspend_txs.push(tx.to_owned());
                     }
                 }
 
                 if !tx.is_coinbase() {
                     for in_ in tx.v_in {
-                        if in_.can_unlock_output_with(addr) {
+                        if in_.uses_key(pub_key_hash) {
                             spend_txos
                                 .entry(in_.tx_id)
                                 .or_insert_with(Vec::new)
@@ -116,14 +116,14 @@ impl Blockchain {
         unspend_txs
     }
 
-    pub fn find_utxo(&self, addr: &str) -> Vec<TXOutput> {
+    pub fn find_utxo(&self, pub_key_hash: &[u8]) -> Vec<TXOutput> {
         let mut res = vec![];
 
-        let unspend_transactions = self.find_unspend_transactions(addr);
+        let unspend_transactions = self.find_unspend_transactions(pub_key_hash);
 
         for tx in unspend_transactions {
             for out in tx.v_out {
-                if out.can_be_unlocked_with(addr) {
+                if out.is_locked_with_key(pub_key_hash) {
                     res.push(out);
                 }
             }
@@ -151,8 +151,50 @@ impl Blockchain {
         }
     }
 
+    pub fn find_transaction(&self, id: &str) -> Option<Transaction> {
+        for block in self.iter() {
+            for tx in block.transactions {
+                if tx.id == id {
+                    return Some(tx);
+                }
+            }
+            if block.prev_block_hash.len() == 0 {
+                break;
+            }
+        }
+        None
+    }
+
+    pub fn sign_transaction(&self, tx: &mut Transaction, private_key: &[u8]) -> Result<()> {
+        let mut prev_txs = HashMap::new();
+
+        for vin in &tx.v_in {
+            let prev_tx = self.find_transaction(&vin.tx_id).unwrap();
+            prev_txs.insert(prev_tx.id.to_owned(), prev_tx);
+        }
+
+        tx.sign(private_key, prev_txs)
+    }
+
+    pub fn verify_transaction(&self, tx: &Transaction) -> Result<bool> {
+        let mut prev_txs = HashMap::new();
+
+        for vin in &tx.v_in {
+            let prev_tx = self.find_transaction(&vin.tx_id).unwrap();
+            prev_txs.insert(prev_tx.id.to_owned(), prev_tx);
+        }
+
+        tx.verify(prev_txs)
+    }
+
     pub fn mine_block(&mut self, transactions: Vec<Transaction>) -> Result<Block> {
         info!("mines a new block");
+
+        for tx in &transactions {
+            if !self.verify_transaction(tx)? {
+                return Err(anyhow!("ERROR: Invalid transaction"));
+            }
+        }
 
         let last_hash = self.get_last_hash()?;
         let new_block = Block::new(transactions, last_hash)?;

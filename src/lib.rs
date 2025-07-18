@@ -6,3 +6,5 @@ mod cli;
 pub use cli::*;
 mod transaction;
 pub use transaction::*;
+mod wallet;
+pub use wallet::*;

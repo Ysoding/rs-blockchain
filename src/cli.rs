@@ -23,7 +23,7 @@ pub enum Commands {
     },
     /// Print all the blocks of the blockchain
     #[command(name = "printchain")]
-    PrintChain {},
+    PrintChain,
     /// Send AMOUNT of coins from FROM address to TO
     Send {
         /// Amount to send
@@ -36,4 +36,7 @@ pub enum Commands {
         #[arg(long)]
         to: String,
     },
+    /// Generates a new key-pair and saves it into the wallet file
+    #[command(name = "createwallet")]
+    CreateWallet,
 }
