@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use anyhow::{Context, Ok, Result, anyhow};
-use base58::FromBase58;
 use bincode::{config::standard, serde::encode_to_vec};
 use log::{debug, error};
 use p256::ecdsa::{Signature, SigningKey, VerifyingKey, signature::SignerMut, signature::Verifier};
@@ -9,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use sha2::{Digest, Sha256};
 
-use crate::{Blockchain, Wallets, hash_pub_key};
+use crate::{Blockchain, Wallets, get_pub_key_hash, hash_pub_key};
 
 const SUBSIDY: i32 = 10;
 
@@ -235,10 +234,8 @@ impl TXOutput {
         self.pub_key_hash == pub_key_hash
     }
 
-    pub fn lock(&mut self, address: &str) {
-        let pub_key_hash = address.from_base58().unwrap();
-        let pub_key_hash = &pub_key_hash[1..pub_key_hash.len() - 4];
-        self.pub_key_hash = pub_key_hash.to_vec();
+    fn lock(&mut self, address: &str) {
+        self.pub_key_hash = get_pub_key_hash(address);
     }
 }
 

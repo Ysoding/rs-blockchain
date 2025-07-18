@@ -8,3 +8,5 @@ mod transaction;
 pub use transaction::*;
 mod wallet;
 pub use wallet::*;
+mod utils;
+pub use utils::*;

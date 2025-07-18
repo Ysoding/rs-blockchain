@@ -11,9 +11,10 @@ use p256::{
     ecdsa::{SigningKey, VerifyingKey},
     elliptic_curve::rand_core::OsRng,
 };
-use ripemd::Ripemd160;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+
+use crate::hash_pub_key;
 
 const VERSION: u8 = 0x00;
 const ADDRESS_CHECKSUM_LEN: usize = 4;
@@ -109,16 +110,6 @@ fn new_key_pair() -> (Vec<u8>, Vec<u8>) {
     let public = VerifyingKey::from(&private);
     let pub_key_bytes = public.to_encoded_point(false).as_bytes().to_vec();
     (private_key_bytes, pub_key_bytes)
-}
-
-pub fn hash_pub_key(pub_key: &[u8]) -> Vec<u8> {
-    let mut sha256 = Sha256::new();
-    sha256.update(pub_key);
-    let public_sha256 = sha256.finalize();
-
-    let mut ripemd160 = Ripemd160::new();
-    ripemd160.update(&public_sha256);
-    ripemd160.finalize().to_vec()
 }
 
 fn checksum(payload: &[u8]) -> Vec<u8> {

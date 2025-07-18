@@ -1,8 +1,7 @@
 use anyhow::Result;
-use base58::FromBase58;
 use clap::Parser;
 use env_logger::Env;
-use rs_blockchain::{Blockchain, Cli, Commands, Transaction, Wallets};
+use rs_blockchain::{Blockchain, Cli, Commands, Transaction, Wallets, get_pub_key_hash};
 
 fn main() -> Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
@@ -19,10 +18,9 @@ fn main() -> Result<()> {
 
             let mut balance = 0;
 
-            let pub_key_hash = address.from_base58().unwrap();
-            let pub_key_hash = &pub_key_hash[1..pub_key_hash.len() - 4];
+            let pub_key_hash = get_pub_key_hash(&address);
 
-            for out in bc.find_utxo(pub_key_hash) {
+            for out in bc.find_utxo(&pub_key_hash) {
                 balance += out.value;
             }
             println!("Balance of '{}': {}\n", address, balance)
