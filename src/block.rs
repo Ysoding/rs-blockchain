@@ -71,7 +71,7 @@ impl Block {
         hasher.update(&data);
         let first_hash = hasher.finalize();
         let mut hasher = Sha256::new();
-        hasher.update(&first_hash);
+        hasher.update(first_hash);
         Ok(hasher.finalize().into())
     }
 

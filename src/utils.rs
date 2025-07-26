@@ -9,7 +9,7 @@ pub fn hash_pub_key(pub_key: &[u8]) -> Vec<u8> {
     let public_sha256 = sha256.finalize();
 
     let mut ripemd160 = Ripemd160::new();
-    ripemd160.update(&public_sha256);
+    ripemd160.update(public_sha256);
     ripemd160.finalize().to_vec()
 }
 

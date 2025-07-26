@@ -69,7 +69,7 @@ impl Blockchain {
 
                     unspent_outputs
                         .entry(tx.id.clone())
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .push(out_idx as i32);
 
                     if accumulated >= amount {
@@ -103,10 +103,7 @@ impl Blockchain {
                 if !tx.is_coinbase() {
                     for in_ in tx.v_in {
                         if in_.uses_key(pub_key_hash) {
-                            spend_txos
-                                .entry(in_.tx_id)
-                                .or_insert_with(Vec::new)
-                                .push(in_.v_out);
+                            spend_txos.entry(in_.tx_id).or_default().push(in_.v_out);
                         }
                     }
                 }
@@ -147,7 +144,7 @@ impl Blockchain {
     pub fn iter(&self) -> BlockchainIterator {
         BlockchainIterator {
             current_hash: self.tip,
-            bc: &self,
+            bc: self,
         }
     }
 
@@ -158,7 +155,7 @@ impl Blockchain {
                     return Some(tx);
                 }
             }
-            if block.prev_block_hash.len() == 0 {
+            if block.prev_block_hash.is_empty() {
                 break;
             }
         }
@@ -220,7 +217,7 @@ impl<'a> Iterator for BlockchainIterator<'a> {
     type Item = Block;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let encoded_block = self.bc.db.get(&self.current_hash).ok()??;
+        let encoded_block = self.bc.db.get(self.current_hash).ok()??;
 
         let block: Block = decode_from_slice(&encoded_block, standard())
             .ok()

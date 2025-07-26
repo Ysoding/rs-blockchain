@@ -80,6 +80,12 @@ pub struct Wallet {
     pub public_key: Vec<u8>,
 }
 
+impl Default for Wallet {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Wallet {
     pub fn new() -> Self {
         let (private_key, public_key) = new_key_pair();
@@ -118,7 +124,7 @@ fn checksum(payload: &[u8]) -> Vec<u8> {
     let first_hash = first_sha.finalize();
 
     let mut second_sha = Sha256::new();
-    second_sha.update(&first_hash);
+    second_sha.update(first_hash);
     let second_hash = second_sha.finalize();
 
     second_hash[..ADDRESS_CHECKSUM_LEN].to_vec()

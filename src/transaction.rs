@@ -63,7 +63,7 @@ impl Transaction {
     }
 
     pub fn new_coinbase(to: &str, data: String) -> Result<Transaction> {
-        let data = if data == "" {
+        let data = if data.is_empty() {
             format!("Reward to '{}'", to).to_owned()
         } else {
             data
@@ -172,7 +172,7 @@ impl Transaction {
 
             // Handle public key
             let pub_key_bytes = &self.v_in[in_id].pub_key;
-            let pub_key = VerifyingKey::from_sec1_bytes(&pub_key_bytes)
+            let pub_key = VerifyingKey::from_sec1_bytes(pub_key_bytes)
                 .context("Invalid public key format")?;
 
             // Verify signature
@@ -204,13 +204,11 @@ impl Transaction {
             });
         }
 
-        let res = Transaction {
+        Transaction {
             id: self.id.clone(),
             v_in: inputs,
             v_out: outputs,
-        };
-
-        res
+        }
     }
 }
 

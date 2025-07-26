@@ -9,7 +9,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::PrintChain {} => {
+        Commands::PrintChain => {
             let bc = Blockchain::new("")?;
             bc.iter().for_each(|b| println!("{:?}", b));
         }
@@ -35,7 +35,7 @@ fn main() -> Result<()> {
             bc.mine_block(vec![tx])?;
             println!("Success!");
         }
-        Commands::CreateWallet {} => {
+        Commands::CreateWallet => {
             let mut ws = Wallets::new()?;
             let addr = ws.create_wallet();
             ws.save()?;
