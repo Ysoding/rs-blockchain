@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use sha2::{Digest, Sha256};
 
-use crate::{Blockchain, Wallets, get_pub_key_hash, hash_pub_key};
+use crate::{UTXOSet, Wallets, get_pub_key_hash, hash_pub_key};
 
 const SUBSIDY: i32 = 10;
 
@@ -20,7 +20,7 @@ pub struct Transaction {
 }
 
 impl Transaction {
-    pub fn new_utxo(from: &str, to: &str, amount: i32, bc: &Blockchain) -> Result<Transaction> {
+    pub fn new_utxo(from: &str, to: &str, amount: i32, utxo_set: &UTXOSet) -> Result<Transaction> {
         let mut inputs = vec![];
         let mut outputs = vec![];
 
@@ -28,7 +28,7 @@ impl Transaction {
         let wallet = wallets.get_wallet(from).unwrap();
         let pub_key_hash = hash_pub_key(&wallet.public_key);
 
-        let (acc, valid_outputs) = bc.find_spendable_outputs(&pub_key_hash, amount);
+        let (acc, valid_outputs) = utxo_set.find_spendable_outputs(&pub_key_hash, amount)?;
 
         if acc < amount {
             error!("Not enough funds");
@@ -57,7 +57,7 @@ impl Transaction {
             v_out: outputs,
         };
         tx.set_id()?;
-        bc.sign_transaction(&mut tx, &wallet.private_key)?;
+        utxo_set.bc.sign_transaction(&mut tx, &wallet.private_key)?;
 
         Ok(tx)
     }
@@ -209,6 +209,17 @@ impl Transaction {
             v_in: inputs,
             v_out: outputs,
         }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct TXOutputs {
+    pub outputs: Vec<TXOutput>,
+}
+
+impl TXOutputs {
+    pub fn push(&mut self, val: TXOutput) {
+        self.outputs.push(val);
     }
 }
 

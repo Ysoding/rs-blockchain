@@ -10,3 +10,5 @@ mod wallet;
 pub use wallet::*;
 mod utils;
 pub use utils::*;
+mod utxoset;
+pub use utxoset::*;

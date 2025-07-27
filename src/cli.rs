@@ -39,4 +39,6 @@ pub enum Commands {
     /// Generates a new key-pair and saves it into the wallet file
     #[command(name = "createwallet")]
     CreateWallet,
+    #[command(name = "listaddress")]
+    ListAddress,
 }

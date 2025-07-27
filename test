@@ -1,0 +1,7 @@
+addresses: 
+15LyRv85HGfS9nYqkBU1h29Nf2JUYMM79Z
+1KfJHzMyPgiqwfxZwxyW5rHdmKV99b5WHL
+
+cargo run -- createblockchain --address 15LyRv85HGfS9nYqkBU1h29Nf2JUYMM79Z
+
+cargo run -- send --from  15LyRv85HGfS9nYqkBU1h29Nf2JUYMM79Z --to 1KfJHzMyPgiqwfxZwxyW5rHdmKV99b5WHL --amount 1
