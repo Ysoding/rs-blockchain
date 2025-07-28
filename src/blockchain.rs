@@ -138,7 +138,7 @@ impl Blockchain {
     }
 
     pub fn mine_block(&mut self, transactions: Vec<Transaction>) -> Result<Block> {
-        info!("mines a new block");
+        info!("mine_block");
 
         for tx in &transactions {
             if !self.verify_transaction(tx)? {
@@ -147,10 +147,24 @@ impl Blockchain {
         }
 
         let last_hash = self.get_last_hash()?;
-        let new_block = Block::new(transactions, last_hash)?;
+        let new_block = Block::new(
+            transactions,
+            last_hash,
+            self.get_best_height()?.unwrap_or(0) + 1,
+        )?;
 
         self.add_block(&new_block)?;
         Ok(new_block)
+    }
+
+    pub fn get_best_height(&self) -> Result<Option<u32>> {
+        let hash = match self.db.get("l")? {
+            Some(h) => h,
+            None => return Ok(None),
+        };
+        let encoded_block = self.db.get(hash)?.unwrap();
+        let block: Block = decode_from_slice(&encoded_block, standard()).map(|(b, _)| b)?;
+        Ok(Some(block.height))
     }
 
     fn get_last_hash(&self) -> Result<[u8; 32]> {

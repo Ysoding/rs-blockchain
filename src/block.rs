@@ -11,27 +11,33 @@ use crate::Transaction;
 
 const TARGET_BITS: usize = 2;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
     timestamp: u128,
     pub transactions: Vec<Transaction>,
     pub prev_block_hash: [u8; 32],
     pub hash: [u8; 32],
-    nonce: u32,
+    pub nonce: u32,
+    pub height: u32,
 }
 
 impl Block {
     pub fn new_genesis_block(coinbase: Transaction) -> Self {
-        Self::new(vec![coinbase], [0u8; 32]).unwrap()
+        Self::new(vec![coinbase], [0u8; 32], 0).unwrap()
     }
 
-    pub fn new(transactions: Vec<Transaction>, prev_block_hash: [u8; 32]) -> Result<Self> {
+    pub fn new(
+        transactions: Vec<Transaction>,
+        prev_block_hash: [u8; 32],
+        height: u32,
+    ) -> Result<Self> {
         let mut data = Self {
             timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis(),
             prev_block_hash,
             transactions,
             hash: [0u8; 32],
             nonce: 0,
+            height,
         };
         data.run_proof_of_work()?;
         Ok(data)
