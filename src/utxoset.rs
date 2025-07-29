@@ -19,11 +19,15 @@ impl UTXOSet {
     pub fn reindex(&self) -> Result<()> {
         std::fs::remove_dir_all("db/utxos").ok();
         let db = sled::open("db/utxos")?;
+        log::info!("Reindexing UTXO set");
 
         for (tx_id, outs) in self.bc.find_utxo() {
             let data = encode_to_vec(outs, standard())?;
             db.insert(tx_id.as_bytes(), data)?;
         }
+
+        db.flush()?;
+        log::info!("UTXO reindex completed at");
 
         Ok(())
     }
@@ -111,6 +115,8 @@ impl UTXOSet {
             }
             db.insert(tx.id.as_bytes(), encode_to_vec(new_outputs, standard())?)?;
         }
+
+        db.flush()?;
         Ok(())
     }
 }

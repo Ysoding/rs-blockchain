@@ -34,11 +34,24 @@ pub enum Commands {
         from: String,
         /// Destination wallet address
         #[arg(long)]
+        /// The from address mine immediately
         to: String,
+        #[arg(long, default_value_t = false)]
+        mine: bool,
     },
     /// Generates a new key-pair and saves it into the wallet file
     #[command(name = "createwallet")]
     CreateWallet,
     #[command(name = "listaddress")]
     ListAddress,
+    #[command(name = "startnode")]
+    StartNode {
+        /// The port to listen on
+        #[arg(short, long)]
+        port: String,
+
+        /// Wallet address for mining (optional)
+        #[arg(short, long)]
+        miner_address: Option<String>,
+    },
 }

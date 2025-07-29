@@ -1,0 +1,14 @@
+
+1GvctxZieBuZWufRxRGxR3A2kXNcjwY7BV
+
+
+
+ultraman@ultraman-desktop (main)✗ % ./rs-blockchain createwallet                /mnt/workspace/rs-blockchain/node_3001
+[2025-07-29T08:53:32Z INFO  rs_blockchain::wallet] create wallet: 1BpxirUxY6hxozjuLQnKtwQAXQPdhPN9An
+Your new address: 1BpxirUxY6hxozjuLQnKtwQAXQPdhPN9An
+ultraman@ultraman-desktop (main)✗ % ./rs-blockchain createwallet                /mnt/workspace/rs-blockchain/node_3001
+[2025-07-29T08:53:33Z INFO  rs_blockchain::wallet] create wallet: 184mFWEj2QvewqSuG9iERzkob37xCihzGJ
+Your new address: 184mFWEj2QvewqSuG9iERzkob37xCihzGJ
+ultraman@ultraman-desktop (main)✗ % ./rs-blockchain createwallet                /mnt/workspace/rs-blockchain/node_3001
+[2025-07-29T08:53:33Z INFO  rs_blockchain::wallet] create wallet: 18WkcrqJrxQo9sxqsyTx34YQ9bFCVqmzEo
+Your new address: 18WkcrqJrxQo9sxqsyTx34YQ9bFCVqmzEo

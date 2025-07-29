@@ -8,13 +8,14 @@ use serde::{Deserialize, Serialize};
 
 use sha2::{Digest, Sha256};
 
-use crate::{UTXOSet, Wallets, get_pub_key_hash, hash_pub_key};
+use crate::{HashType, UTXOSet, Wallets, get_pub_key_hash, hash_pub_key};
 
 const SUBSIDY: i32 = 10;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Transaction {
     pub id: String,
+    pub hash_val: HashType,
     pub v_in: Vec<TXInput>,
     pub v_out: Vec<TXOutput>,
 }
@@ -53,6 +54,7 @@ impl Transaction {
         }
         let mut tx = Transaction {
             id: "".to_owned(),
+            hash_val: HashType::default(),
             v_in: inputs,
             v_out: outputs,
         };
@@ -79,6 +81,7 @@ impl Transaction {
         let tx_out = TXOutput::new(SUBSIDY, to);
         let mut tx = Transaction {
             id: "".to_owned(),
+            hash_val: HashType::default(),
             v_in: vec![tx_in],
             v_out: vec![tx_out],
         };
@@ -87,13 +90,16 @@ impl Transaction {
     }
 
     pub fn set_id(&mut self) -> Result<()> {
-        self.id = hex::encode(self.hash()?);
+        let hash = self.hash()?;
+        self.id = hex::encode(hash);
+        self.hash_val = hash;
         Ok(())
     }
 
     pub fn hash(&self) -> Result<[u8; 32]> {
         let mut data = self.clone();
         data.id = "".to_owned();
+        data.hash_val = HashType::default();
         let data = encode_to_vec(data, standard())?;
         let mut hasher = Sha256::new();
         hasher.update(data);
@@ -206,6 +212,7 @@ impl Transaction {
 
         Transaction {
             id: self.id.clone(),
+            hash_val: self.hash_val.clone(),
             v_in: inputs,
             v_out: outputs,
         }

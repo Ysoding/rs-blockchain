@@ -7,29 +7,32 @@ use bincode::{
 };
 use log::info;
 
-use crate::{Block, TXOutputs, Transaction};
+use crate::{Block, HashType, TXOutputs, Transaction};
 
 const GENESIS_COINBASE_DATA: &str =
     "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
 
 pub struct Blockchain {
-    pub tip: [u8; 32],
+    pub tip: HashType,
     pub db: sled::Db,
 }
 
 impl Blockchain {
-    pub fn new(addr: &str) -> Result<Self> {
+    pub fn new() -> Result<Self> {
         let db = sled::open("db/blockchain")?;
         match db.get("l")? {
             Some(hash) => {
                 info!("Found blockchain");
-                let mut last_hash = [0u8; 32];
+                let mut last_hash = HashType::default();
                 last_hash.copy_from_slice(&hash);
                 Ok(Blockchain { tip: last_hash, db })
             }
             None => {
                 info!("No existing blockchain found.");
-                Self::create(addr)
+                Ok(Blockchain {
+                    tip: HashType::default(),
+                    db,
+                })
             }
         }
     }
@@ -78,7 +81,7 @@ impl Blockchain {
         utxos
     }
 
-    fn add_block(&mut self, block: &Block) -> Result<()> {
+    pub fn add_block(&mut self, block: &Block) -> Result<()> {
         info!("add new block");
 
         let hash = block.hash;
@@ -147,37 +150,50 @@ impl Blockchain {
         }
 
         let last_hash = self.get_last_hash()?;
-        let new_block = Block::new(
-            transactions,
-            last_hash,
-            self.get_best_height()?.unwrap_or(0) + 1,
-        )?;
+        let new_block = Block::new(transactions, last_hash, self.get_best_height()? + 1)?;
 
         self.add_block(&new_block)?;
         Ok(new_block)
     }
 
-    pub fn get_best_height(&self) -> Result<Option<u32>> {
+    pub fn get_best_height(&self) -> Result<i32> {
         let hash = match self.db.get("l")? {
             Some(h) => h,
-            None => return Ok(None),
+            None => return Ok(-1),
         };
         let encoded_block = self.db.get(hash)?.unwrap();
         let block: Block = decode_from_slice(&encoded_block, standard()).map(|(b, _)| b)?;
-        Ok(Some(block.height))
+        Ok(block.height)
     }
 
-    fn get_last_hash(&self) -> Result<[u8; 32]> {
+    pub fn get_block_hashs(&self) -> Vec<HashType> {
+        let mut res = vec![];
+        for ele in self.iter() {
+            res.push(ele.hash);
+        }
+        res
+    }
+
+    fn get_last_hash(&self) -> Result<HashType> {
         let hash = self.db.get("l")?.unwrap();
         let mut last_hash = [0u8; 32];
         last_hash.copy_from_slice(&hash);
         Ok(last_hash)
     }
+
+    pub fn get_block(&self, block_hash: &HashType) -> Result<Block> {
+        let data = self.db.get(block_hash)?.unwrap();
+        let block: Block = decode_from_slice(&data, standard())
+            .ok()
+            .map(|(b, _)| b)
+            .unwrap();
+        Ok(block)
+    }
 }
 
 pub struct BlockchainIterator<'a> {
     bc: &'a Blockchain,
-    current_hash: [u8; 32],
+    current_hash: HashType,
 }
 
 impl<'a> Iterator for BlockchainIterator<'a> {

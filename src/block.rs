@@ -11,31 +11,33 @@ use crate::Transaction;
 
 const TARGET_BITS: usize = 2;
 
+pub type HashType = [u8; 32];
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
     timestamp: u128,
     pub transactions: Vec<Transaction>,
-    pub prev_block_hash: [u8; 32],
-    pub hash: [u8; 32],
-    pub nonce: u32,
-    pub height: u32,
+    pub prev_block_hash: HashType,
+    pub hash: HashType,
+    pub nonce: i32,
+    pub height: i32,
 }
 
 impl Block {
     pub fn new_genesis_block(coinbase: Transaction) -> Self {
-        Self::new(vec![coinbase], [0u8; 32], 0).unwrap()
+        Self::new(vec![coinbase], HashType::default(), 0).unwrap()
     }
 
     pub fn new(
         transactions: Vec<Transaction>,
-        prev_block_hash: [u8; 32],
-        height: u32,
+        prev_block_hash: HashType,
+        height: i32,
     ) -> Result<Self> {
         let mut data = Self {
             timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis(),
             prev_block_hash,
             transactions,
-            hash: [0u8; 32],
+            hash: HashType::default(),
             nonce: 0,
             height,
         };
@@ -55,7 +57,7 @@ impl Block {
         Ok(data)
     }
 
-    fn hash_transactions(&self) -> Result<[u8; 32]> {
+    fn hash_transactions(&self) -> Result<HashType> {
         let mut leaves = Vec::new();
         for tx in &self.transactions {
             leaves.push(tx.hash()?);
@@ -70,7 +72,7 @@ impl Block {
         Ok(hash[0..TARGET_BITS] == target[..])
     }
 
-    fn hash(&self) -> Result<[u8; 32]> {
+    fn hash(&self) -> Result<HashType> {
         let data = self.prepare_hash_data()?;
         // Bitcoin uses double SHA-256: SHA256(SHA256(data))
         let mut hasher = Sha256::new();
