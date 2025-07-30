@@ -85,11 +85,19 @@ impl Blockchain {
         info!("add new block");
 
         let hash = block.hash;
-        self.db.insert(hash, encode_to_vec(block, standard())?)?;
-        self.db.insert("l", &hash)?;
-        self.db.flush()?;
+        if self.db.get(hash)?.is_some() {
+            return Ok(());
+        }
 
-        self.tip = hash;
+        self.db.insert(hash, encode_to_vec(block, standard())?)?;
+
+        let last_height = self.get_best_height()?;
+        if block.height > last_height {
+            self.db.insert("l", &hash)?;
+            self.db.flush()?;
+            self.tip = hash;
+        }
+
         Ok(())
     }
 

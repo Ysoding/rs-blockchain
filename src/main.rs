@@ -48,7 +48,7 @@ fn main() -> Result<()> {
                 let block = utxo_set.bc.mine_block(txs)?;
                 utxo_set.update(block)?;
             } else {
-                Server::send_transaction(&tx, utxo_set)?;
+                Server::send_transaction(tx, utxo_set)?;
             }
             println!("Success!");
         }

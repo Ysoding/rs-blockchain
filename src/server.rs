@@ -75,17 +75,13 @@ impl MessageHandler for Message {
             Message::Addr { nodes } => {
                 log::info!("Receive address msg: {:?}", nodes);
                 for node in nodes {
-                    server.add_nodes(node);
+                    server.add_node(node);
                 }
                 Ok(())
             }
             Message::Block { addr_from, block } => {
-                log::info!(
-                    "Receive block msg: {}, {}",
-                    addr_from,
-                    hex::encode(block.hash)
-                );
-                server.add_block(&block)?;
+                log::info!("Receive block msg: {}, {:?}", addr_from, block,);
+                server.add_block(block)?;
                 let mut in_transit = server.get_in_transit();
                 if !in_transit.is_empty() {
                     let block_hash = in_transit[0];
@@ -182,7 +178,7 @@ impl MessageHandler for Message {
                     hex::encode(id)
                 );
                 if kind == "block" {
-                    let block = server.get_block(&id)?;
+                    let block = server.get_block(id)?;
                     server.send_message(
                         addr_from,
                         Message::Block {
@@ -213,7 +209,7 @@ impl MessageHandler for Message {
                     transaction.id
                 );
                 server.insert_mempool(transaction.clone());
-                if server.node_address == server.config.known_node {
+                if server.node_address == server.config.centeral_node {
                     for node in server.get_known_nodes() {
                         if node != server.node_address && node != *addr_from {
                             server.send_message(
@@ -228,11 +224,11 @@ impl MessageHandler for Message {
                     }
                 } else if !server.mining_address.is_empty() {
                     let mut mempool = server.get_mempool();
-                    log::debug!("Current mempool: {:#?}", &mempool);
+                    log::info!("Current mempool: {:#?}", &mempool);
                     if !mempool.is_empty() {
                         loop {
                             let mut txs = Vec::new();
-                            for (_, tx) in &mempool {
+                            for tx in mempool.values() {
                                 if server.verify_tx(tx)? {
                                     txs.push(tx.clone());
                                 }
@@ -240,14 +236,18 @@ impl MessageHandler for Message {
                             if txs.is_empty() {
                                 return Ok(());
                             }
+
                             let cbtx =
                                 Transaction::new_coinbase(&server.mining_address, String::new())?;
                             txs.push(cbtx);
+
                             for tx in &txs {
                                 mempool.remove(&tx.hash_val);
                             }
+
                             let new_block = server.mine_block(txs)?;
                             server.utxo_reindex()?;
+
                             for node in server.get_known_nodes() {
                                 if node != server.node_address {
                                     server.send_message(
@@ -260,6 +260,7 @@ impl MessageHandler for Message {
                                     )?;
                                 }
                             }
+
                             if mempool.is_empty() {
                                 break;
                             }
@@ -305,7 +306,7 @@ impl MessageHandler for Message {
                     },
                 )?;
                 if !server.node_is_known(addr_from) {
-                    server.add_nodes(addr_from);
+                    server.add_node(addr_from);
                 }
                 Ok(())
             }
@@ -330,14 +331,14 @@ struct ServerInner {
 
 #[derive(Clone)]
 pub struct Config {
-    known_node: String,
+    centeral_node: String,
     version: i32,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Config {
-            known_node: CENTERAL_NODE.to_owned(),
+            centeral_node: CENTERAL_NODE.to_owned(),
             version: 1,
         }
     }
@@ -345,6 +346,7 @@ impl Default for Config {
 
 const CENTERAL_NODE: &str = "localhost:3000";
 
+#[derive(Default)]
 pub struct ServerBuilder {
     port: Option<String>,
     miner_address: Option<String>,
@@ -354,12 +356,7 @@ pub struct ServerBuilder {
 
 impl ServerBuilder {
     pub fn new() -> Self {
-        ServerBuilder {
-            port: None,
-            miner_address: None,
-            utxo: None,
-            config: Config::default(),
-        }
+        Self::default()
     }
 
     pub fn port(mut self, port: &str) -> Self {
@@ -387,7 +384,7 @@ impl ServerBuilder {
         let miner_address = self.miner_address.unwrap_or_default();
         let utxo = self.utxo.ok_or_else(|| anyhow!("Missing UTXO set"))?;
         let mut known_nodes = HashSet::new();
-        known_nodes.insert(self.config.known_node.clone());
+        known_nodes.insert(self.config.centeral_node.clone());
         Ok(Server {
             node_address: format!("localhost:{}", port).to_string(),
             mining_address: miner_address,
@@ -407,13 +404,13 @@ impl Server {
         ServerBuilder::new()
     }
 
-    pub fn send_transaction(tx: &Transaction, utxo_set: UTXOSet) -> Result<()> {
-        let server = Server::builder().port("7000").utxo(utxo_set).build()?;
+    pub fn send_transaction(tx: Transaction, utxo_set: UTXOSet) -> Result<()> {
+        let server = Server::builder().port("6969").utxo(utxo_set).build()?;
         server.send_message(
-            &server.config.known_node,
+            &server.config.centeral_node,
             Message::Tx {
                 addr_from: server.node_address.clone(),
-                transaction: tx.clone(),
+                transaction: tx,
             },
         )?;
         Ok(())
@@ -423,27 +420,27 @@ impl Server {
         let server = self.clone();
         thread::spawn(move || {
             thread::sleep(Duration::from_millis(2000));
-            match server.get_best_height().unwrap() {
-                -1 => server.request_blocks().unwrap(),
-                v => server
-                    .send_message(
-                        &server.config.known_node,
-                        Message::Version {
-                            addr_from: server.node_address.clone(),
-                            version: server.config.version,
-                            best_height: v,
-                        },
-                    )
-                    .unwrap_or(()),
-            };
+            match server.get_best_height()? {
+                -1 => server.request_blocks(),
+                v => server.send_message(
+                    &server.config.centeral_node,
+                    Message::Version {
+                        addr_from: server.node_address.clone(),
+                        version: server.config.version,
+                        best_height: v,
+                    },
+                ),
+            }
         });
 
         let listener = TcpListener::bind(&self.node_address)?;
-        info!("Server listening on {}", &self.node_address);
+        info!(
+            "Server listening on {}, mining_address: {}",
+            &self.node_address, &self.mining_address
+        );
 
         for stream in listener.incoming() {
             let stream = stream?;
-            info!("New connection: {}", stream.peer_addr()?);
             let server = self.clone();
             thread::spawn(move || {
                 if let Err(e) = server.handle_connection(stream) {
@@ -457,14 +454,17 @@ impl Server {
 
     fn handle_connection(&self, mut stream: TcpStream) -> Result<()> {
         info!("handle new connection");
+
         let mut len_buf = [0; 4];
         stream.read_exact(&mut len_buf)?;
         let len = u32::from_be_bytes(len_buf) as usize;
         info!("Received message length: {}", len);
+
         let mut buf = vec![0; len];
         stream.read_exact(&mut buf)?;
         let msg = bytes_to_msg(&buf)?;
         info!("Deserialized message: {:?}", msg);
+
         msg.handle(self)
     }
 
@@ -497,7 +497,13 @@ impl Server {
         self.with_read_lock(|inner| inner.known_nodes.contains(addr))
     }
 
-    fn add_nodes(&self, addr: &str) {
+    fn remove_node(&self, addr: &str) {
+        self.with_write_lock(|inner| {
+            inner.known_nodes.remove(addr);
+        });
+    }
+
+    fn add_node(&self, addr: &str) {
         self.with_write_lock(|inner| {
             inner.known_nodes.insert(addr.to_string());
         });
@@ -512,6 +518,7 @@ impl Server {
     }
 
     fn request_blocks(&self) -> Result<()> {
+        info!("request_blocks");
         for node in self.get_known_nodes() {
             self.send_message(
                 &node,
@@ -531,9 +538,18 @@ impl Server {
 
     fn send_data(&self, addr: &str, data: &[u8]) -> Result<()> {
         if addr == self.node_address {
+            info!("skip: send self data");
             return Ok(());
         }
-        let mut stream = TcpStream::connect(addr)?;
+
+        let mut stream = match TcpStream::connect(addr) {
+            Ok(s) => s,
+            Err(_) => {
+                self.remove_node(addr);
+                return Ok(());
+            }
+        };
+
         stream.set_write_timeout(Some(Duration::from_secs(5)))?;
         let len = data.len() as u32;
         stream.write_all(&len.to_be_bytes())?;
@@ -575,7 +591,7 @@ impl Server {
     }
 
     fn add_block(&self, block: &Block) -> Result<()> {
-        self.with_write_lock(|inner| inner.utxo.bc.add_block(&block))
+        self.with_write_lock(|inner| inner.utxo.bc.add_block(block))
     }
 
     fn mine_block(&self, txs: Vec<Transaction>) -> Result<Block> {

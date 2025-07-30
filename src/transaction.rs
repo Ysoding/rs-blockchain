@@ -212,7 +212,7 @@ impl Transaction {
 
         Transaction {
             id: self.id.clone(),
-            hash_val: self.hash_val.clone(),
+            hash_val: self.hash_val,
             v_in: inputs,
             v_out: outputs,
         }
